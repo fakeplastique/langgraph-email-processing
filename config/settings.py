@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     kafka_inbound_topic: str = "emails.inbound"
     kafka_summary_topic: str = "emails.summaries"
     kafka_classification_topic: str = "emails.classifications"
+    kafka_dead_letter_topic: str = "emails.dead-letter"
     kafka_auto_offset_reset: str = "earliest"
     kafka_topic_partitions: int = 3
 

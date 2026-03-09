@@ -1,3 +1,4 @@
+import json
 import logging
 
 from confluent_kafka import KafkaException, Producer
@@ -10,7 +11,7 @@ from tenacity import (
 )
 
 from config.settings import Settings
-from email_processor.models import ClassificationResult, SummaryResult
+from email_processor.models import ClassificationResult, InboundEmailMessage, SummaryResult
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class EmailProducer:
         )
         self._summary_topic = settings.kafka_summary_topic
         self._classification_topic = settings.kafka_classification_topic
+        self._dead_letter_topic = settings.kafka_dead_letter_topic
         self._flush_retry = retry(
             stop=stop_after_attempt(settings.kafka_flush_retry_max_attempts),
             wait=wait_fixed(1.0),
@@ -58,6 +60,17 @@ class EmailProducer:
             self._classification_topic,
             key=result.message_id.encode("utf-8"),
             value=result.model_dump_json().encode("utf-8"),
+            callback=self._delivery_callback,
+        )
+
+    def send_dead_letter(self, msg: InboundEmailMessage, error: str) -> None:
+        logger.warning("Producing dead letter for message %s to %s", msg.message_id, self._dead_letter_topic)
+        payload = msg.model_dump()
+        payload["error"] = error
+        self._producer.produce(
+            self._dead_letter_topic,
+            key=msg.message_id.encode("utf-8"),
+            value=json.dumps(payload, default=str).encode("utf-8"),
             callback=self._delivery_callback,
         )
 

@@ -64,6 +64,7 @@ class EmailProcessorService:
                 self.settings.kafka_inbound_topic,
                 self.settings.kafka_summary_topic,
                 self.settings.kafka_classification_topic,
+                self.settings.kafka_dead_letter_topic,
             )
         ]
         futures = admin.create_topics(topics)
@@ -160,6 +161,8 @@ class EmailProcessorService:
             error_message=error,
         )
         self.pg_store.upsert_result(record)
+        self.producer.send_dead_letter(msg, error)
+        self.producer.flush()
         self.consumer.commit()
 
     def _shutdown(self, signum, frame) -> None:
