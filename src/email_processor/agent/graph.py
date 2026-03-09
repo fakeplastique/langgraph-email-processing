@@ -17,7 +17,7 @@ from email_processor.blob_store import BlobStore
 
 def build_graph(blob_store: BlobStore, llm: BaseChatModel, llm_retry_kwargs: dict | None = None):
     llm_retry = make_llm_retry(**(llm_retry_kwargs or {}))
-    classify_invoke = llm_retry(llm.with_structured_output(ClassificationOutput).bind(max_tokens=128).invoke)
+    classify_invoke = llm_retry(llm.with_structured_output(ClassificationOutput).bind(max_tokens=256).invoke)
     summarize_invoke = llm_retry(llm.with_structured_output(SummaryOutput).bind(max_tokens=256).invoke)
 
     graph = StateGraph(EmailAgentState)
