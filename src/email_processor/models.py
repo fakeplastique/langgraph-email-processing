@@ -1,17 +1,17 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 from pydantic import BaseModel, Field
 
 
 class InboundEmailMessage(BaseModel):
-    """Kafka inbound message: email metadata + blob path."""
+    """Kafka inbound message: email metadata + blob path"""
 
     message_id: str
     recipients: list[str]
     sender: str
     subject: str
     body_blob_path: str
-    received_at: datetime = Field(default_factory=datetime.utcnow)
+    received_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     retry_count: int = 0
 
 

@@ -60,7 +60,6 @@ def load_body(state: dict, *, blob_store: BlobStore) -> dict:
 
 
 def classify(state: dict, *, llm_invoke: Callable) -> dict:
-    """llm_invoke: retry-wrapped invoke of a ClassificationOutput-structured LLM."""
     if state.get("error"):
         return {}
 
@@ -95,7 +94,6 @@ def classify(state: dict, *, llm_invoke: Callable) -> dict:
 
 
 def summarize(state: dict, *, llm_invoke: Callable) -> dict:
-    """llm_invoke: retry-wrapped invoke of a SummaryOutput-structured LLM."""
     if state.get("error"):
         return {}
 
