@@ -31,13 +31,14 @@ class EmailProducer:
         self._summary_topic = settings.kafka_summary_topic
         self._classification_topic = settings.kafka_classification_topic
         self._dead_letter_topic = settings.kafka_dead_letter_topic
-        self._flush_retry = retry(
+        flush_retry = retry(
             stop=stop_after_attempt(settings.kafka_flush_retry_max_attempts),
             wait=wait_fixed(1.0),
             retry=retry_if_exception_type((KafkaException, BufferError)),
             before_sleep=before_sleep_log(logger, logging.WARNING),
             reraise=True,
         )
+        self._flusher = flush_retry(self._do_flush)
 
     def _delivery_callback(self, err, msg):
         if err:
@@ -76,7 +77,7 @@ class EmailProducer:
         )
 
     def flush(self, timeout: float = 5.0) -> None:
-        self._flush_retry(self._do_flush)(timeout)
+        self._flusher(timeout)
 
     def _do_flush(self, timeout: float) -> None:
         remaining = self._producer.flush(timeout)

@@ -1,8 +1,8 @@
 import logging
 from datetime import UTC, datetime
+from typing import Callable
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, Field
 from tenacity import (
     retry,
@@ -14,24 +14,22 @@ from tenacity import (
 
 from email_processor.blob_store import BlobStore
 from email_processor.models import ClassificationResult, SummaryResult
+from anthropic import RateLimitError, InternalServerError, APIConnectionError, APITimeoutError
 
 logger = logging.getLogger(__name__)
 
-_LLM_RETRYABLE_ERRORS: tuple[type[Exception], ...] = ()
-try:
-    from anthropic import RateLimitError, InternalServerError, APIConnectionError, APITimeoutError
-    _LLM_RETRYABLE_ERRORS = (RateLimitError, InternalServerError, APIConnectionError, APITimeoutError)
-except ImportError:
-    pass
+
+_LLM_RETRYABLE_ERRORS: tuple[type[Exception], ...] = (RateLimitError, InternalServerError, APIConnectionError, APITimeoutError)
 
 
-def _make_llm_retry(
+
+def make_llm_retry(
     max_attempts: int = 4,
     initial: float = 1.0,
     max_wait: float = 30.0,
     jitter: float = 1.0,
 ):
-    """Retry wrapper for LLM calls"""
+    """Build a tenacity retry decorator for LLM calls. Call once at startup."""
     return retry(
         stop=stop_after_attempt(max_attempts),
         wait=wait_exponential_jitter(initial=initial, max=max_wait, jitter=jitter),
@@ -39,7 +37,6 @@ def _make_llm_retry(
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
     )
-
 
 
 class ClassificationOutput(BaseModel):
@@ -62,13 +59,12 @@ def load_body(state: dict, *, blob_store: BlobStore) -> dict:
         return {"body": "", "error": f"Failed to load email body: {e}"}
 
 
-def classify(state: dict, *, llm: BaseChatModel, llm_retry_kwargs: dict | None = None) -> dict:
+def classify(state: dict, *, llm_invoke: Callable) -> dict:
+    """llm_invoke: retry-wrapped invoke of a ClassificationOutput-structured LLM."""
     if state.get("error"):
         return {}
 
-    structured_llm = llm.with_structured_output(ClassificationOutput)
-    invoke_with_retry = _make_llm_retry(**(llm_retry_kwargs or {}))(structured_llm.invoke)
-    result = invoke_with_retry(
+    result = llm_invoke(
         [
             SystemMessage(
                 content=(
@@ -98,13 +94,12 @@ def classify(state: dict, *, llm: BaseChatModel, llm_retry_kwargs: dict | None =
     }
 
 
-def summarize(state: dict, *, llm: BaseChatModel, llm_retry_kwargs: dict | None = None) -> dict:
+def summarize(state: dict, *, llm_invoke: Callable) -> dict:
+    """llm_invoke: retry-wrapped invoke of a SummaryOutput-structured LLM."""
     if state.get("error"):
         return {}
 
-    structured_llm = llm.with_structured_output(SummaryOutput)
-    invoke_with_retry = _make_llm_retry(**(llm_retry_kwargs or {}))(structured_llm.invoke)
-    result = invoke_with_retry(
+    result = llm_invoke(
         [
             SystemMessage(
                 content=(
