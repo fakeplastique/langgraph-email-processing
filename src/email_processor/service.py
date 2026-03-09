@@ -160,10 +160,13 @@ class EmailProcessorService:
             status="failed",
             error_message=error,
         )
-        self.pg_store.upsert_result(record)
-        self.producer.send_dead_letter(msg, error)
-        self.producer.flush()
-        self.consumer.commit()
+        try:
+            self.pg_store.upsert_result(record)
+            self.producer.send_dead_letter(msg, error)
+            self.producer.flush()
+            self.consumer.commit()
+        except Exception:
+            logger.exception("Failed to handle failure for message %s", msg.message_id)
 
     def _shutdown(self, signum, frame) -> None:
         logger.info("Shutting down (signal %s)", signum)
