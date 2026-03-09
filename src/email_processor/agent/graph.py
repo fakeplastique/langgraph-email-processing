@@ -8,12 +8,12 @@ from email_processor.agent.state import EmailAgentState
 from email_processor.blob_store import BlobStore
 
 
-def build_graph(blob_store: BlobStore, llm: BaseChatModel):
+def build_graph(blob_store: BlobStore, llm: BaseChatModel, llm_retry_kwargs: dict | None = None):
     graph = StateGraph(EmailAgentState)
 
     graph.add_node("load_body", partial(load_body, blob_store=blob_store))
-    graph.add_node("classify", partial(classify, llm=llm))
-    graph.add_node("summarize", partial(summarize, llm=llm))
+    graph.add_node("classify", partial(classify, llm=llm, llm_retry_kwargs=llm_retry_kwargs))
+    graph.add_node("summarize", partial(summarize, llm=llm, llm_retry_kwargs=llm_retry_kwargs))
 
     graph.set_entry_point("load_body")
 

@@ -25,7 +25,11 @@ class EmailProcessorService:
         logger.info("Initializing EmailProcessorService")
         self.consumer = EmailConsumer(settings)
         self.producer = EmailProducer(settings)
-        self.pg_store = PgStore(settings.pg_dsn)
+        self.pg_store = PgStore(
+            settings.pg_dsn,
+            max_attempts=settings.pg_retry_max_attempts,
+            retry_wait=settings.pg_retry_wait,
+        )
         self.blob_store = LocalFileBlobStore(settings.blob_storage_root)
         self._running = True
 
@@ -37,7 +41,13 @@ class EmailProcessorService:
                 model=settings.llm_model, api_key=settings.anthropic_api_key
             )
 
-        self.graph = build_graph(self.blob_store, llm)
+        llm_retry_kwargs = {
+            "max_attempts": settings.llm_retry_max_attempts,
+            "initial": settings.llm_retry_initial_wait,
+            "max_wait": settings.llm_retry_max_wait,
+            "jitter": settings.llm_retry_jitter,
+        }
+        self.graph = build_graph(self.blob_store, llm, llm_retry_kwargs=llm_retry_kwargs)
         logger.info("LangGraph agent built successfully")
 
     def _ensure_topics(self) -> None:

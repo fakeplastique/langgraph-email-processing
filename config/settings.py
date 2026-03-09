@@ -17,4 +17,18 @@ class Settings(BaseSettings):
     anthropic_api_key: str = Field(min_length=1)
     llm_model: str = "claude-sonnet-4-20250514"
 
+    llm_retry_max_attempts: int = 4
+    llm_retry_initial_wait: float = 1.0
+    llm_retry_max_wait: float = 30.0
+    llm_retry_jitter: float = 1.0
+
+    pg_retry_max_attempts: int = 3
+    pg_retry_wait: float = 0.5
+
+    kafka_producer_retries: int = 5
+    kafka_producer_retry_backoff_ms: int = 200
+    kafka_flush_retry_max_attempts: int = 3
+    kafka_commit_retry_max_attempts: int = 3
+    kafka_commit_retry_wait: float = 0.5
+
     model_config = {"env_prefix": "APP_", "env_file": ".env", "env_file_encoding": "utf-8"}

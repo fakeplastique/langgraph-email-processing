@@ -4,11 +4,41 @@ from datetime import UTC, datetime
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, Field
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential_jitter,
+    before_sleep_log,
+)
 
 from email_processor.blob_store import BlobStore
 from email_processor.models import ClassificationResult, SummaryResult
 
 logger = logging.getLogger(__name__)
+
+_LLM_RETRYABLE_ERRORS: tuple[type[Exception], ...] = ()
+try:
+    from anthropic import RateLimitError, InternalServerError, APIConnectionError, APITimeoutError
+    _LLM_RETRYABLE_ERRORS = (RateLimitError, InternalServerError, APIConnectionError, APITimeoutError)
+except ImportError:
+    pass
+
+
+def _make_llm_retry(
+    max_attempts: int = 4,
+    initial: float = 1.0,
+    max_wait: float = 30.0,
+    jitter: float = 1.0,
+):
+    """Retry wrapper for LLM calls"""
+    return retry(
+        stop=stop_after_attempt(max_attempts),
+        wait=wait_exponential_jitter(initial=initial, max=max_wait, jitter=jitter),
+        retry=retry_if_exception_type(_LLM_RETRYABLE_ERRORS) if _LLM_RETRYABLE_ERRORS else retry_if_exception_type(()),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
 
 
 
@@ -32,12 +62,13 @@ def load_body(state: dict, *, blob_store: BlobStore) -> dict:
         return {"body": "", "error": f"Failed to load email body: {e}"}
 
 
-def classify(state: dict, *, llm: BaseChatModel) -> dict:
+def classify(state: dict, *, llm: BaseChatModel, llm_retry_kwargs: dict | None = None) -> dict:
     if state.get("error"):
         return {}
 
     structured_llm = llm.with_structured_output(ClassificationOutput)
-    result = structured_llm.invoke(
+    invoke_with_retry = _make_llm_retry(**(llm_retry_kwargs or {}))(structured_llm.invoke)
+    result = invoke_with_retry(
         [
             SystemMessage(
                 content=(
@@ -67,12 +98,13 @@ def classify(state: dict, *, llm: BaseChatModel) -> dict:
     }
 
 
-def summarize(state: dict, *, llm: BaseChatModel) -> dict:
+def summarize(state: dict, *, llm: BaseChatModel, llm_retry_kwargs: dict | None = None) -> dict:
     if state.get("error"):
         return {}
 
     structured_llm = llm.with_structured_output(SummaryOutput)
-    result = structured_llm.invoke(
+    invoke_with_retry = _make_llm_retry(**(llm_retry_kwargs or {}))(structured_llm.invoke)
+    result = invoke_with_retry(
         [
             SystemMessage(
                 content=(

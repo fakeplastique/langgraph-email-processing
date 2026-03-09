@@ -1,7 +1,14 @@
 import json
 import logging
 
-from confluent_kafka import Consumer, KafkaError
+from confluent_kafka import Consumer, KafkaError, KafkaException
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_fixed,
+    before_sleep_log,
+)
 
 from config.settings import Settings
 from email_processor.models import InboundEmailMessage
@@ -26,6 +33,13 @@ class EmailConsumer:
             }
         )
         self._consumer.subscribe([settings.kafka_inbound_topic])
+        self._commit_retry = retry(
+            stop=stop_after_attempt(settings.kafka_commit_retry_max_attempts),
+            wait=wait_fixed(settings.kafka_commit_retry_wait),
+            retry=retry_if_exception_type(KafkaException),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=True,
+        )
 
     def poll(self, timeout: float = 1.0) -> InboundEmailMessage | None:
         msg = self._consumer.poll(timeout)
@@ -44,6 +58,9 @@ class EmailConsumer:
             return None
 
     def commit(self) -> None:
+        self._commit_retry(self._do_commit)()
+
+    def _do_commit(self) -> None:
         self._consumer.commit(asynchronous=False)
         logger.debug("Offset committed")
 
