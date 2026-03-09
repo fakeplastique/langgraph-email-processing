@@ -35,4 +35,4 @@ class Settings(BaseSettings):
     dead_letter_max_retries: int = 3
     dead_letter_replay_delay: float = 30.0
 
-    model_config = {"env_prefix": "APP_", "env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_prefix": "APP_", "env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}

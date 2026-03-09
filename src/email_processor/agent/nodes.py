@@ -29,7 +29,7 @@ def make_llm_retry(
     max_wait: float = 30.0,
     jitter: float = 1.0,
 ):
-    """Build a tenacity retry decorator for LLM calls. Call once at startup."""
+    """Build a tenacity retry decorator for LLM calls. Call once at startup"""
     return retry(
         stop=stop_after_attempt(max_attempts),
         wait=wait_exponential_jitter(initial=initial, max=max_wait, jitter=jitter),
