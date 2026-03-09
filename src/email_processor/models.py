@@ -1,5 +1,5 @@
 from datetime import datetime, UTC
-
+from typing import Literal
 from pydantic import BaseModel, Field
 
 
@@ -21,7 +21,7 @@ class SummaryResult(BaseModel):
     message_id: str
     summary: str
     key_points: list[str]
-    processed_at: datetime = Field(default_factory=datetime.utcnow)
+    processed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ClassificationResult(BaseModel):
@@ -31,7 +31,7 @@ class ClassificationResult(BaseModel):
     category: str
     confidence: float
     labels: list[str]
-    processed_at: datetime = Field(default_factory=datetime.utcnow)
+    processed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class EmailProcessingRecord(BaseModel):
@@ -47,7 +47,7 @@ class EmailProcessingRecord(BaseModel):
     category: str | None = None
     confidence: float | None = None
     labels: list[str] = []
-    status: str = "pending"
+    status: Literal["pending", "completed", "failed"] = "pending"
     error_message: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
