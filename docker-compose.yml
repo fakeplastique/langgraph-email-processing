@@ -47,5 +47,14 @@ services:
     volumes:
       - ./data/blobs:/data/blobs
 
+  dead-letter-replay:
+    build: .
+    entrypoint: ["python", "-m", "email_processor.dead_letter_replay"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    env_file:
+      - .env
+
 volumes:
   blob-data:

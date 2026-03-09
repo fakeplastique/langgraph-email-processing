@@ -64,9 +64,10 @@ class EmailProducer:
         )
 
     def send_dead_letter(self, msg: InboundEmailMessage, error: str) -> None:
-        logger.warning("Producing dead letter for message %s to %s", msg.message_id, self._dead_letter_topic)
+        logger.warning("Producing dead letter for message %s (retry_count=%d) to %s", msg.message_id, msg.retry_count, self._dead_letter_topic)
         payload = msg.model_dump()
         payload["error"] = error
+        payload["retry_count"] = msg.retry_count
         self._producer.produce(
             self._dead_letter_topic,
             key=msg.message_id.encode("utf-8"),

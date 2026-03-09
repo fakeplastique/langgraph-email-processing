@@ -12,6 +12,7 @@ class InboundEmailMessage(BaseModel):
     subject: str
     body_blob_path: str
     received_at: datetime = Field(default_factory=datetime.utcnow)
+    retry_count: int = 0
 
 
 class SummaryResult(BaseModel):

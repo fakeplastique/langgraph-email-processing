@@ -32,4 +32,7 @@ class Settings(BaseSettings):
     kafka_commit_retry_max_attempts: int = 3
     kafka_commit_retry_wait: float = 0.5
 
+    dead_letter_max_retries: int = 3
+    dead_letter_replay_delay: float = 30.0
+
     model_config = {"env_prefix": "APP_", "env_file": ".env", "env_file_encoding": "utf-8"}
